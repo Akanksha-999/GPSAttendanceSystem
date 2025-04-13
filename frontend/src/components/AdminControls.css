@@ -5,14 +5,15 @@
   margin: 2rem auto;
   border: 1px solid #466ea2;
   border-radius: 0.5rem;
-  background-color: rgb(38, 42, 149);
+  background-color: rgb(105, 108, 186);
 }
 
 .control-panel h2 {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 1.5rem;
-  color: #2d3748;
+  color: #edf6fe;
+  text-decoration: underline;
 }
 
 .control-panel select {
@@ -39,7 +40,7 @@
 }
 
 .control-panel button:disabled {
-  background-color: #a0aec0;
+  background-color: #a9bfdd;
   cursor: not-allowed;
 }
 

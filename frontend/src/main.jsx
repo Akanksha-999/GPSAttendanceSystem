@@ -24,7 +24,7 @@ import './App.css';
 import App from './App.jsx';
 import  AuthProvider  from './context/AuthContext';  // Import AuthProvider
 import { BrowserRouter } from 'react-router-dom';
-import 'react-toastify/dist/ReactToastify.css';
+import "./leaflet.css";
 
 // Wrap the app in the AuthProvider
 ReactDOM.createRoot(document.getElementById('root')).render(

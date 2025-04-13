@@ -23,7 +23,15 @@ const AdminDashboard = () => {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Admin Attendance Dashboard</h1>
+      {/* <h1 className="text-2xl font-bold">Admin Attendance Dashboard</h1> */}
+      <div
+  className="bg-yellow-200 hover:shadow-lg p-6 flex items-center justify-center rounded-xl cursor-pointer transition duration-300 ease-in-out w-full max-w-md mx-auto"
+>
+  <h1 className="text-blue-900 font-bold text-xl text-center whitespace-nowrap">
+    Admin Attendance Dashboard
+  </h1>
+</div>
+
       <input
         type="date"
         value={date}
@@ -32,9 +40,9 @@ const AdminDashboard = () => {
       />
       <button onClick={fetchReport} className="ml-2 px-4 py-2 bg-blue-600 text-white rounded">View Report</button>
 
-      {report && (
+       {report && (
         <div className="mt-6 space-y-4">
-          <div className="text-lg font-semibold">Summary for {report.date}</div>
+          <div className="text-lg font-bold">Summary for {report.date}</div>
           <ul className="list-disc pl-6">
             <li>Total Students: {report.total}</li>
             <li>Present: {report.present}</li>
@@ -42,7 +50,7 @@ const AdminDashboard = () => {
           </ul>
 
           <div>
-            <h2 className="text-xl font-semibold mt-4">Present Students</h2>
+            <h2 className="text-xl font-bold mt-4">Present Students</h2>
             <ul className="pl-4">
               {report.presentUsers.map(user => (
                 <li key={user.email}>{user.name} ({user.email})</li>
@@ -51,7 +59,7 @@ const AdminDashboard = () => {
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold mt-4">Absent Students</h2>
+            <h2 className="text-xl font-bold mt-4">Absent Students</h2>
             <ul className="pl-4">
               {report.absentUsers.map(user => (
                 <li key={user.email}>{user.name} ({user.email})</li>
@@ -59,7 +67,11 @@ const AdminDashboard = () => {
             </ul>
           </div>
         </div>
-      )}
+      )} 
+
+
+
+
     </div>
   );
 };

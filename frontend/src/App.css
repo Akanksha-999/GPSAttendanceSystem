@@ -4,12 +4,10 @@
 
 
 body {
-  background-color: lightblue;
+  background-color: rgb(15, 42, 62);
 }
 
-h1 {
-  border: 2px solid red; /* Make sure the text is visible */
-}
+
 @media (max-width: 640px) {
   .control-panel {
     padding: 1rem;

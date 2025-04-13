@@ -38,10 +38,10 @@ const Login = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     }
-  };
+  }; 
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="flex justify-center items-center min-h-screen " style={{ backgroundColor: "rgb(166, 202, 214)" }}>
       <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
 
