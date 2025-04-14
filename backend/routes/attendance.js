@@ -21,6 +21,16 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 router.post("/mark", async (req, res) => {
+  const currentTime = new Date();
+    const currentHour = currentTime.getHours();
+    const currentMinutes = currentTime.getMinutes();
+
+    // Check if current time is between 7 PM and 8 PM
+    if (currentHour !== 19 && !(currentHour === 20 && currentMinutes === 0)) {
+      return res.status(403).json({ message: "Attendance can only be marked between 7 PM and 8 PM" });
+    }
+  
+  
   const { faceDescriptor, latitude, longitude } = req.body;
 
   const users = await User.find();
@@ -39,6 +49,8 @@ if (user.role !== "student") {
     msg: "Only students can mark attendance." 
   });
 }
+
+
   const distFromHostel = haversine(latitude, longitude, HOSTEL_LAT, HOSTEL_LNG);
 
   if (distFromHostel > RADIUS_KM)
@@ -74,65 +86,82 @@ if (existing) {
 
 });
 
+// router.get("/daily-report", async (req, res) => {
+//   const { date } = req.query; // format: "YYYY-MM-DD"
+//   const targetDate = new Date(date);
+//   const start = new Date(targetDate.setHours(0, 0, 0, 0));
+//   const end = new Date(targetDate.setHours(23, 59, 59, 999));
+
+//   const attendanceRecords = await Attendance.find({
+//     timestamp: { $gte: start, $lte: end }
+//   }).populate({
+//     path: "userId",
+//     match: { role: "student" // Only include students
+//   }});
+  
+//   // Filter out nulls (admins)
+//   const presentStudents = attendanceRecords.filter(a => a.userId !== null);
+
+//   const allUsers = await User.find();
+//   const presentUsers = attendanceRecords.map(a => a.email);
+//   const absentUsers = allUsers.filter(u => !presentUsers.includes(u.email));
+
+//   res.json({
+//     date,
+//     total: allUsers.length,
+//     present: attendanceRecords.length,
+//     absent: absentUsers.length,
+//     presentUsers: attendanceRecords,
+//     absentUsers
+//   });
+// });
+
 router.get("/daily-report", async (req, res) => {
-  const { date } = req.query; // format: "YYYY-MM-DD"
+  const { date } = req.query;
   const targetDate = new Date(date);
+  
   const start = new Date(targetDate.setHours(0, 0, 0, 0));
   const end = new Date(targetDate.setHours(23, 59, 59, 999));
 
-  const attendanceRecords = await Attendance.find({
-    timestamp: { $gte: start, $lte: end }
-  }).populate({
-    path: "userId",
-    match: { role: "student" // Only include students
-  }});
-  
-  // Filter out nulls (admins)
-  const presentStudents = attendanceRecords.filter(a => a.userId !== null);
+  try {
+    // Get only student attendance records
+    const attendanceRecords = await Attendance.find({
+      timestamp: { $gte: start, $lte: end }
+    }).populate({
+      path: "userId",
+      match: { role: "student" }
+    });
 
-  const allUsers = await User.find();
-  const presentUsers = attendanceRecords.map(a => a.email);
-  const absentUsers = allUsers.filter(u => !presentUsers.includes(u.email));
+    // Filter out nulls (admins) and get present students
+    const presentStudents = attendanceRecords.filter(a => a.userId !== null);
 
-  res.json({
-    date,
-    total: allUsers.length,
-    present: attendanceRecords.length,
-    absent: absentUsers.length,
-    presentUsers: attendanceRecords,
-    absentUsers
-  });
+    // Get all students (exclude admins)
+    const allStudents = await User.find({ role: "student" });
+
+    // Get absent students
+    const presentStudentIds = presentStudents.map(s => s.userId._id.toString());
+    const absentStudents = allStudents.filter(
+      student => !presentStudentIds.includes(student._id.toString())
+    );
+
+res.json({
+  date,
+  total: allStudents.length,
+  present: presentStudents.length,
+  absent: absentStudents.length,
+  presentUsers: presentStudents.map(record => ({
+    userId: record.userId,
+    timestamp: record.timestamp
+  })),
+  absentUsers: absentStudents
 });
 
-// backend/routes/attendance.js
-// router.post("/reset", async (req, res) => {
-//   try{
-//     const { studentId } = req.body;
-  
-//   // Verify admin role
-//   if (req.user.role !== "admin") {
-//     return res.status(403).json({ msg: "Only admins can reset attendance" });
-//   }
-// // Validate student ID
-// if (!mongoose.Types.ObjectId.isValid(req.body.studentId)) {
-//   return res.status(400).json({ msg: "Invalid student ID" });
-// }
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+});
 
-// // Delete attendance records
-// const today = new Date();
-// const start = new Date(today.setHours(0,0,0,0));
-// const end = new Date(today.setHours(23,59,59,999));
 
-//   await Attendance.deleteMany({
-//     userId: studentId,
-//     timestamp: { $gte: start, $lte: end }
-//   });
-
-//   res.json({ success: true });
-// }catch (err){
-//   res.status(500).json({ msg: "Server error" });
-// }
-// });
 
 router.post("/reset", async (req, res) => {
   try {

@@ -104,31 +104,75 @@ const Attendance = () => {
     }
   };
 
+  // const handleAttendance = async () => {
+  //   if (!isModelReady) return;
+    
+  //   setMsg("Locating...");
+  //   navigator.geolocation.getCurrentPosition(
+  //     (pos) => {
+  //       // Verify accuracy
+  //       if (pos.coords.accuracy > 200) { // 100 meters radius
+  //         setMsg("Low GPS accuracy. Move to open area.");
+  //         return;
+  //       }
+  //       markAttendance(pos.coords.latitude, pos.coords.longitude);
+  //     },
+  //     (err) => {
+  //       console.error("GPS Error:", err);
+        
+  //       setShowMap(false);
+        
+  //       if (err.code === 2) {
+  //         setMsg(`
+  //           1. Enable device GPS (not just browser permissions)
+  //           2. Ensure you're outdoors with clear sky view
+  //           3. Connect to mobile data
+  //           4. Wait 30 seconds then retry
+  //         `);
+  //       } else {
+  //         setMsg("Location access required - enable GPS in device settings");
+  //       }
+  //     },
+  //     {
+  //       enableHighAccuracy: true,
+  //       timeout: 15000,
+  //       maximumAge: 0
+  //     }
+  //   );
+  // };
+
   const handleAttendance = async () => {
     if (!isModelReady) return;
-    
+
+    // ✅ Time Check - Must be between 7 PM and 8 PM
+    const now = new Date();
+    const hour = now.getHours();
+    const minutes = now.getMinutes();
+
+    if (hour < 19 || (hour === 20 && minutes > 0) || hour > 20) {
+      setMsg("⛔ Attendance can only be marked between 7:00 PM and 8:00 PM.");
+      return;
+    }
+
     setMsg("Locating...");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         // Verify accuracy
-        if (pos.coords.accuracy > 200) { // 100 meters radius
-          setMsg("Low GPS accuracy. Move to open area.");
+        if (pos.coords.accuracy > 200) {
+          setMsg("⚠ Low GPS accuracy. Move to open area.");
           return;
         }
         markAttendance(pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
         console.error("GPS Error:", err);
-        
         setShowMap(false);
-        
         if (err.code === 2) {
-          setMsg(`
-            1. Enable device GPS (not just browser permissions)
-            2. Ensure you're outdoors with clear sky view
-            3. Connect to mobile data
-            4. Wait 30 seconds then retry
-          `);
+          setMsg(`📍 Location tips:
+  1. Enable device GPS (not just browser permissions)
+  2. Ensure you're outdoors with clear sky view
+  3. Connect to mobile data
+  4. Wait 30 seconds then retry`);
         } else {
           setMsg("Location access required - enable GPS in device settings");
         }
@@ -136,10 +180,11 @@ const Attendance = () => {
       {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 0
+        maximumAge: 0,
       }
     );
   };
+
 
   return (
     <div className="p-4">
