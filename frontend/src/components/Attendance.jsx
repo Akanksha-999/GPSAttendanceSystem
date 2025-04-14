@@ -111,7 +111,7 @@ const Attendance = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         // Verify accuracy
-        if (pos.coords.accuracy > 100) { // 100 meters radius
+        if (pos.coords.accuracy > 200) { // 100 meters radius
           setMsg("Low GPS accuracy. Move to open area.");
           return;
         }
