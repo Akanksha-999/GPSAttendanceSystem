@@ -95,6 +95,8 @@ const Attendance = () => {
         faceDescriptor: Array.from(detection.descriptor),
         latitude: lat,
         longitude: lng
+      },{headers: {
+        'x-auth-token': localStorage.getItem('token')}
       });
       
       setMsg(`Attendance marked at ${new Date().toLocaleTimeString()}`);
@@ -144,7 +146,7 @@ const Attendance = () => {
   const handleAttendance = async () => {
     if (!isModelReady) return;
 
-    // ✅ Time Check - Must be between 7 PM and 8 PM
+    //✅ Time Check - Must be between 7 PM and 8 PM
     const now = new Date();
     const hour = now.getHours();
     const minutes = now.getMinutes();

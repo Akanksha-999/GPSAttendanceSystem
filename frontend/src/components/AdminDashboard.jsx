@@ -5,33 +5,85 @@ const AdminDashboard = () => {
   const [report, setReport] = useState(null);
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
 
+  // const fetchReport = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setReportError("");
+  //     setReport(null);
+
+  //     const isoDate = new Date(date).toISOString().split('T')[0];
+  //     const res = await axios.get(`http://localhost:5000/api/attendance/daily-report?date=${isoDate}`);
+      
+  //     // Validate response structure
+  //     if (!res.data || !res.data.presentStudents || !res.data.absentStudents) {
+  //       throw new Error("Invalid report data structure from server");
+  //     }
+
+  //     setReport({
+  //       date: res.data.date,
+  //       total: res.data.total,
+  //       present: res.data.present,
+  //       absent: res.data.absent,
+  //       presentStudents: res.data.presentStudents || [],
+  //       absentStudents: res.data.absentStudents || []
+  //     });
+
+  //   } catch (err) {
+  //     console.error("Error fetching report", err);
+  //     setReportError(err.response?.data?.msg || err.message || "Failed to load attendance report");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   const fetchReport = async () => {
     try {
       setLoading(true);
-      const isoDate = new Date(date).toISOString().split('T')[0];
-      const res = await axios.get(`http://localhost:5000/api/attendance/daily-report?date=${isoDate}`);
-      
-      // Transform data with safe defaults
-      const transformedData = {
-        ...res.data,
-        presentUsers: res.data.presentStudents || [],
-        absentUsers: res.data.absentStudents || []
-      };
-
-      setReport(transformedData);
-    } catch (err) {
-      console.error("Error fetching report", err);
-      alert(err.response?.data?.msg || "Error fetching report");
+      setReportError("");
       setReport(null);
-    } finally {
+  
+      const isoDate = new Date(date).toISOString().split('T')[0];
+      const res = await axios.get(`http://localhost:5000/api/attendance/daily-report?date=${isoDate}`,
+        {
+          headers: {
+            'x-auth-token': localStorage.getItem('token')
+          }
+        }
+      );
+      
+      // // Validate response structure
+      // if (!res.data.success || !res.data.data) {
+      //   throw new Error(res.data.msg || "Invalid server response");
+      // }
+
+      // After the axios.get call:
+if (!res.data || typeof res.data.total !== 'number') {
+  throw new Error("Invalid report structure");
+}
+  
+      setReport({
+        date: res.data.date,
+        total: res.data.total,
+        present: res.data.present,
+        absent: res.data.absent,
+        presentStudents: res.data.presentStudents || [],
+        absentStudents: res.data.absentStudents || []
+      });
+  
+    } catch (err) {
+      console.error("Error fetching report:", err);
+      setReportError(
+        err.response?.data?.msg || 
+        err.response?.data?.message || 
+        err.message || 
+        "Failed to load report"
+      );    } finally {
       setLoading(false);
     }
   };
-
-   return (
-   <div className="p-6 space-y-4">
-
+  return (
+    <div className="p-6 space-y-4">
       <div className="bg-yellow-200 hover:shadow-lg p-6 flex items-center justify-center rounded-xl cursor-pointer transition duration-300 ease-in-out w-full max-w-md mx-auto">
         <h1 className="text-blue-900 font-bold text-xl text-center whitespace-nowrap">
           Admin Attendance Dashboard
@@ -44,6 +96,7 @@ const AdminDashboard = () => {
           value={date}
           onChange={e => setDate(e.target.value)}
           className="p-2 border rounded flex-1"
+          aria-label="Select date for report"
         />
         <button 
           onClick={fetchReport} 
@@ -54,114 +107,84 @@ const AdminDashboard = () => {
         </button>
       </div>
 
-      {report && (
-        // <div className="mt-6 space-y-4">
-        <div className="bg-yellow-200 hover:shadow-lg p-6 flex flex-col gap-x-6 items-start justify-center rounded-xl space-y-4 cursor-pointer transition duration-300 ease-in-out w-full max-w-xl mx-auto">
-
-      <h2 className="text-blue-900 font-bold text-xl text-center">
-       Attendance Report for {report.date}
-      </h2>
-  
-    <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-    <button className="bg-white text-blue-900 font-bold py-2 px-4 rounded-lg shadow-md w-full sm:w-auto">
-      Total Students: {report.total}
-    </button>
-    <button className="bg-green-100 text-green-800 font-bold py-2 px-4 rounded-lg shadow-md w-full sm:w-auto">
-      Present: {report.present}
-    </button>
-    <button className="bg-red-100 text-red-800 font-bold py-2 px-4 rounded-lg shadow-md w-full sm:w-auto">
-      Absent: {report.absent}
-    </button>
-  </div>
-
-
-{/* <div>
-<h2 className="text-xl font-bold mt-4">Present Students</h2>
-  <ul className="pl-4">
-    {(report.presentUsers || []).map(user => (
-      <li key={user.userId?._id || user._id} className="mb-2">
-        <div className="font-medium">
-          {user.userId?.name || user.name} ({user.userId?.email || user.email})
+      {reportError && (
+        <div className="bg-red-100 text-red-700 p-3 rounded-lg">
+          Error: {reportError}
         </div>
-        <div className="text-sm text-gray-600">
-          Marked at: {new Date(user.timestamp).toLocaleString()}
-        </div>
-      </li>
-    ))}
-
-      {report.presentUsers?.length === 0 && (
-      <li className="text-gray-500">No present students for this date</li>
       )}
-        </ul>
-        </div>
 
-          <div>
-            <h2 className="text-xl font-bold mt-4">Absent Students</h2>
-            <ul className="pl-4">
-              {(report.absentUsers || []).map(user => (
-                <li key={user._id}>
-                  {user.name} ({user.email})
-                </li>
-              ))}
-              {report.absentUsers?.length === 0 && (
-                <li className="text-gray-500">No absent students for this date</li>
-              )}
-            </ul>
+      {report && (
+        <div className="bg-yellow-100 p-6 rounded-xl shadow-md space-y-3 mx-auto max-w-3xl">
+          <h2 className="text-blue-900 font-bold text-xl text-center">
+            Attendance Report for {report.date}
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="font-bold text-lg">Total Students</h3>
+              <p className="text-2xl">{report.total}</p>
+            </div>
+            <div className="bg-green-100 p-4 rounded-lg shadow">
+              <h3 className="font-bold text-lg">Present</h3>
+              <p className="text-2xl">{report.present}</p>
+            </div>
+            <div className="bg-red-100 p-4 rounded-lg shadow">
+              <h3 className="font-bold text-lg">Absent</h3>
+              <p className="text-2xl">{report.absent}</p>
+            </div>
           </div>
-        
-      */}
 
-<div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-  {/* Present Students */}
-  <div className="bg-yellow-100 p-4 rounded-xl shadow-md w-full">
-    <h2 className="text-2xl font-bold text-black mb-3 text-center">
-      Present Students
-    </h2>
-    <div className="max-h-72 overflow-y-auto bg-white rounded-lg border border-gray-300 p-3">
-      <ul className="space-y-3">
-        {(report.presentUsers || []).map((user) => (
-          <li key={user.userId?._id || user._id} className="border-b pb-2">
-            <div className="font-semibold text-blue-900">
-              {user.userId?.name || user.name} ({user.userId?.email || user.email})
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Present Students */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-xl font-bold mb-4">Present Students</h2>
+              <div className="max-h-72 overflow-y-auto">
+                {report.presentStudents.length > 0 ? (
+                   
+                  <ul className="space-y-2">
+                    {report.presentStudents.map((student, index) => (
+                      <li 
+                        // key={`${student.email}-${student.timestamp}`}
+                        key={'present-${index}'}
+                        className="border-b pb-2"
+                      >
+                      <div className="font-semibold text-blue-900">
+                  {student.name} ({student.email})
+                </div><div className="text-sm text-gray-600">
+                  {new Date(student.timestamp).toLocaleString()}
+                </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No present students for this date</p>
+                )}
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
-              Marked at: {new Date(user.timestamp).toLocaleString()}
+
+            {/* Absent Students */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-xl font-bold mb-4">Absent Students</h2>
+              <div className="max-h-72 overflow-y-auto">
+                {report.absentStudents.length > 0 ? (
+                  <ul className="space-y-2">
+                    {report.absentStudents.map((student,index) => (
+                      <li 
+                        key={'absent-${index}'}
+                        className="border-b pb-2"
+                      >
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-sm text-gray-600">{student.email}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">All students present!</p>
+                )}
+              </div>
             </div>
-          </li>
-        ))}
-        {report.presentUsers?.length === 0 && (
-          <li className="text-gray-500">No present students for this date</li>
-        )}
-      </ul>
-    </div>
-  </div>
-
-  {/* Absent Students */}
-  <div className="bg-red-100 p-4 rounded-xl shadow-md w-full">
-    <h2 className="text-2xl font-bold text-black mb-3 text-center">
-      Absent Students
-    </h2>
-    <div className="max-h-72 overflow-y-auto bg-white rounded-lg border border-gray-300 p-3">
-      <ul className="space-y-3 font-semibold text-red-900">
-        {(report.absentUsers || []).map((user) => (
-          <li key={user._id} className="border-b pb-2">
-            {user.name} ({user.email})
-          </li>
-        ))}
-        {report.absentUsers?.length === 0 && (
-          <li className="text-gray-500 font-normal">
-            No absent students for this date
-          </li>
-        )}
-      </ul>
-    </div>
-  </div>
-</div>
-
-
-
-
-     </div>
+          </div>
+        </div>
       )}
     </div>
   );

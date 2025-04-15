@@ -2,220 +2,230 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const nodemailer = require("nodemailer");
 const Attendance = require("../models/Attendance");
 const User = require("../models/User");
+const adminAuth = require("./middleware/adminAuth");
+
 
 const HOSTEL_LAT = 23.256394;
 const HOSTEL_LNG = 77.458534;
 const RADIUS_KM = 0.5;
+const FACE_MATCH_THRESHOLD = 0.4; // Adjust based on your face-api.js model
 
+// Improved Haversine formula
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * (Math.PI/180)) * 
+    Math.cos(lat2 * (Math.PI/180)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
 }
 
+// Secure Attendance Marking
 router.post("/mark", async (req, res) => {
-  const currentTime = new Date();
-    const currentHour = currentTime.getHours();
-    const currentMinutes = currentTime.getMinutes();
-
-    // Check if current time is between 7 PM and 8 PM
-    if (currentHour !== 19 && !(currentHour === 20 && currentMinutes === 0)) {
-      return res.status(403).json({ message: "Attendance can only be marked between 7 PM and 8 PM" });
-    }
-  
-  
-  const { faceDescriptor, latitude, longitude } = req.body;
-
-  const users = await User.find();
-  const distances = users.map(user => {
-    const dist = faceDescriptor.reduce((sum, val, i) => sum + ((val - user.faceDescriptor[i]) ** 2), 0);
-    return { user, distance: Math.sqrt(dist) };
-  });
-
-  const match = distances.sort((a, b) => a.distance - b.distance)[0];
-  if (match.distance > 0.6) return res.status(404).json({ msg: "Face not recognized." });
-
-  // Add role validation
-const user = match.user;
-if (user.role !== "student") {
-  return res.status(403).json({ 
-    msg: "Only students can mark attendance." 
-  });
-}
-
-
-  const distFromHostel = haversine(latitude, longitude, HOSTEL_LAT, HOSTEL_LNG);
-
-  if (distFromHostel > RADIUS_KM)
-    return res.status(403).json({  msg: `You are ${distFromHostel.toFixed(2)} km away from the hostel. Attendance denied.` });
-
-  // ✅ Check if already marked today
-const start = new Date();
-start.setHours(0, 0, 0, 0);
-const end = new Date();
-end.setHours(23, 59, 59, 999);
-
-const existing = await Attendance.findOne({
-  userId: user._id,
-  timestamp: { $gte: start, $lte: end }
-});
-
-if (existing) {
-  return res.status(409).json({ msg: "Attendance already marked today." });
-}
-
-
-  const attendance = await Attendance.create({
-    userId: user._id,
-    email: user.email,
-    name: user.name,
-    timestamp: new Date(),
-    location: { latitude, longitude },
-    status: "Present"
-  });
-
-  res.json({ success: true, attendance });
-  console.log("Attendance record created:", attendance); // After saving
-
-});
-
-// router.get("/daily-report", async (req, res) => {
-//   const { date } = req.query; // format: "YYYY-MM-DD"
-//   const targetDate = new Date(date);
-//   const start = new Date(targetDate.setHours(0, 0, 0, 0));
-//   const end = new Date(targetDate.setHours(23, 59, 59, 999));
-
-//   const attendanceRecords = await Attendance.find({
-//     timestamp: { $gte: start, $lte: end }
-//   }).populate({
-//     path: "userId",
-//     match: { role: "student" // Only include students
-//   }});
-  
-//   // Filter out nulls (admins)
-//   const presentStudents = attendanceRecords.filter(a => a.userId !== null);
-
-//   const allUsers = await User.find();
-//   const presentUsers = attendanceRecords.map(a => a.email);
-//   const absentUsers = allUsers.filter(u => !presentUsers.includes(u.email));
-
-//   res.json({
-//     date,
-//     total: allUsers.length,
-//     present: attendanceRecords.length,
-//     absent: absentUsers.length,
-//     presentUsers: attendanceRecords,
-//     absentUsers
-//   });
-// });
-
-router.get("/daily-report", async (req, res) => {
-  const { date } = req.query;
-  const targetDate = new Date(date);
-  
-  const start = new Date(targetDate.setHours(0, 0, 0, 0));
-  const end = new Date(targetDate.setHours(23, 59, 59, 999));
-
   try {
-    // Get only student attendance records
-    const attendanceRecords = await Attendance.find({
-      timestamp: { $gte: start, $lte: end }
-    }).populate({
-      path: "userId",
-      match: { role: "student" }
+    const { faceDescriptor, latitude, longitude } = req.body;
+    
+    // Authentication Check
+    const token = req.header("x-auth-token");
+    if (!token) return res.status(401).json({ msg: "Authentication required" });
+
+    // Verify JWT
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    // Face Validation
+    if (!user.faceDescriptor?.length) {
+      return res.status(400).json({ msg: "No face registered for this account" });
+    }
+
+    // Face Comparison
+    const distance = faceDescriptor.reduce(
+      (sum, val, i) => sum + Math.pow(val - user.faceDescriptor[i], 2),
+      0
+    );
+    const similarity = Math.sqrt(distance);
+    
+    if (similarity > FACE_MATCH_THRESHOLD) {
+      return res.status(403).json({ 
+        msg: "Face verification failed. Please try again." 
+      });
+    }
+    
+   const currentTime=new Date();
+   const currentHour=currentTime.getHours();
+   const currentMinutes=currentTime.getMinutes();
+  // Check If current time is between 7 pm AND 8 PM
+  if(currentHour!==19 &&currentHour===20 && currentMinutes===0){
+    return res.status(403).json({
+      message:"Attendance can only be marked between 7 PM and 8 PM"})
+  }
+
+  
+    // Location Validation
+    const distFromHostel = haversine(latitude, longitude, HOSTEL_LAT, HOSTEL_LNG);
+    if (distFromHostel > RADIUS_KM) {
+      return res.status(403).json({
+        msg: `Attendance denied. You're ${distFromHostel.toFixed(2)}km from hostel.`
+      });
+    }
+
+    // Prevent Duplicate Entry
+    const todayStart = new Date().setHours(0,0,0,0);
+    const todayEnd = new Date().setHours(23,59,59,999);
+    
+    const existing = await Attendance.findOne({
+      userId: user._id,
+      timestamp: { $gte: todayStart, $lte: todayEnd }
+    });
+    
+    if (existing) {
+      return res.status(409).json({ msg: "Attendance already marked today" });
+    }
+
+    // Create Attendance Record
+    const attendance = await Attendance.create({
+      userId: user._id,
+      email: user.email,
+      name: user.name,
+      timestamp: new Date(),
+      location: { latitude, longitude },
+      status: "Present"
     });
 
-    // Filter out nulls (admins) and get present students
-    const presentStudents = attendanceRecords.filter(a => a.userId !== null);
-
-    // Get all students (exclude admins)
-    const allStudents = await User.find({ role: "student" });
-
-    // Get absent students
-    const presentStudentIds = presentStudents.map(s => s.userId._id.toString());
-    const absentStudents = allStudents.filter(
-      student => !presentStudentIds.includes(student._id.toString())
-    );
-
-res.json({
-  date,
-  total: allStudents.length,
-  present: presentStudents.length,
-  absent: absentStudents.length,
-  presentUsers: presentStudents.map(record => ({
-    userId: record.userId,
-    timestamp: record.timestamp
-  })),
-  absentUsers: absentStudents
-});
+    res.json({ success: true, attendance });
 
   } catch (err) {
-    res.status(500).json({ msg: "Server error" });
+    console.error("Attendance Error:", err);
+    res.status(500).json({ msg: "Server error processing attendance" });
   }
 });
 
+// Enhanced Daily Report
+router.get("/daily-report", adminAuth ,async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ msg: "Date parameter required" });
 
+    const targetDate = new Date(date);
+    const start = new Date(targetDate.setHours(0,0,0,0));
+    const end = new Date(targetDate.setHours(23,59,59,999));
 
+    // Get attendance with populated user data
+    const records = await Attendance.find({
+      timestamp: { $gte: start, $lte: end },
+      status:"Present"
+    });
+
+    // Get all students
+    const allStudents = await User.find({ role: "student" }).lean();
+
+    // Process present students
+    const presentStudents = records
+      .map(record => ({
+        name: record.name,
+        email: record.email,
+        timestamp: record.timestamp
+      }));
+
+    // Calculate absentees
+    const presentEmails = new Set(presentStudents.map(s => s.email));
+    const absentStudents = allStudents
+      .filter(student => !presentEmails.has(student.email))
+      .map(student => ({ name:student.name, email:student.email }));
+
+    res.json({
+      success:true,
+      date,
+      total: allStudents.length,
+      present: presentStudents.length,
+      absent: absentStudents.length,
+      presentStudents,
+      absentStudents
+    });
+
+  } catch (err) {
+    console.error("Report Error:", err);
+    res.status(500).json({ msg: "Error generating daily report" });
+  }
+});
+
+// Secure Attendance Reset
 router.post("/reset", async (req, res) => {
   try {
-    // 1. Verify auth header
+    // Authentication
     const token = req.header("x-auth-token");
-    if (!token) {
-      console.log("No token provided");
-      return res.status(401).json({ msg: "No token provided" });
-    }
+    if (!token) return res.status(401).json({ msg: "Authentication required" });
 
-    // 2. Verify admin role
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtErr) {
-      console.log("JWT verification failed:", jwtErr);
-      return res.status(401).json({ msg: "Invalid token" });
-    }
-
+    // Authorization
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.role !== "admin") {
-      console.log("Non-admin attempt:", decoded.email);
-      return res.status(403).json({ msg: "Admin access required" });
+      return res.status(403).json({ msg: "Admin privileges required" });
     }
 
-    // 3. Validate studentId
-    if (!mongoose.Types.ObjectId.isValid(req.body.studentId)) {
-      console.log("Invalid student ID:", req.body.studentId);
+    // Validation
+    const studentId = req.body.studentId;
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
       return res.status(400).json({ msg: "Invalid student ID" });
     }
 
-    // 4. Delete attendance
+    // Date range for today
     const today = new Date();
     const start = new Date(today.setHours(0,0,0,0));
     const end = new Date(today.setHours(23,59,59,999));
 
+    // Delete attendance
     const result = await Attendance.deleteMany({
-      userId: req.body.studentId,
+      userId: studentId,
       timestamp: { $gte: start, $lte: end }
     });
 
-    console.log(`Reset successful for ${req.body.studentId}. Deleted: ${result.deletedCount}`);
+    // Send notification email
+    try {
+      const student = await User.findById(studentId);
+      if (student) {
+        const transporter = nodemailer.createTransport({
+          // service: "gmail",
+          host:"smtp.gmail.com",
+          port:587,
+          secure:false,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        await transporter.sendMail({
+          from: `Hostel Admin <${process.env.EMAIL_USER}>`,
+          to: student.email,
+          subject: "Attendance Reset Notification",
+          html: `
+            <p>Dear ${student.name},</p>
+            <p>Your attendance for ${today.toLocaleDateString()} has been reset by the admin.</p>
+            <p>Contact hostel office for clarification.</p>
+          `
+        });
+      }
+    } catch (emailError) {
+      console.error("Email Error:", emailError);
+    }
+
     res.json({
       success: true,
       deletedCount: result.deletedCount
     });
 
   } catch (err) {
-    console.error("Reset endpoint error:", err);
-    res.status(500).json({ 
-      msg: "Server error during reset",
-      error: err.message 
-    });
+    console.error("Reset Error:", err);
+    res.status(500).json({ msg: "Server error processing reset" });
   }
 });
 
-  
 module.exports = router;

@@ -1,7 +1,29 @@
+
+/* @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'); */
+
+ 
 .leaflet-container {
     height: 100%;
     width: 100%;
     min-height: 500px;
   }
   .leaflet-layer { z-index: 1 !important; }
-.leaflet-control-container { z-index: 2 !important; }
+.leaflet-control-container { z-index: 2 !important; } 
+
+/* Custom Leaflet Overrides */
+/* .leaflet-container {
+  height: 400px; /* Set default map height 
+  width: 100%;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+.leaflet-control-container {
+  position: relative;
+  z-index: 2;
+}
+
+.leaflet-popup-content {
+  margin: 8px;
+  font-size: 14px;
+} */

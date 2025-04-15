@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-
+/* @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'); */
 body {
   background-color: rgb(15, 42, 62);
 }
@@ -19,3 +19,14 @@ body {
     gap: 1rem;
   }
 }
+/* 
+Fix default Leaflet marker icons
+.leaflet-div-icon {
+  background: none;
+  border: none;
+}
+
+.leaflet-marker-icon {
+  background-image: url('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png');
+  background-size: contain;
+} */
