@@ -8,7 +8,7 @@ import Login from "./components/Login";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import Register from "./components/Register";
 import AdminControls from './components/AdminControls';
-import "./leaflet.css";
+import "./components/leaflet.css";
 import MapDisplay from './components/MapDisplay';
 
 

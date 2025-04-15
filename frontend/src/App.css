@@ -30,3 +30,14 @@ Fix default Leaflet marker icons
   background-image: url('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png');
   background-size: contain;
 } */
+
+
+
+/* 
+.leaflet-marker-icon {
+  background-image: url('node_modules/leaflet/dist/images/marker-icon.png');
+}
+
+.leaflet-container a {
+  color: #0078a8 !important;
+} */

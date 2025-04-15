@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
+import LiveLocation from './LiveLocation';
+
 
 const AdminDashboard = () => {
   const [report, setReport] = useState(null);
@@ -186,6 +188,8 @@ if (!res.data || typeof res.data.total !== 'number') {
           </div>
         </div>
       )}
+      <LiveLocation hostelPosition={[23.256394, 77.458534]} />
+
     </div>
   );
 };
