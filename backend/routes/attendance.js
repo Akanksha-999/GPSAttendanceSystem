@@ -228,4 +228,77 @@ router.post("/reset", async (req, res) => {
   }
 });
 
+// Add this route to your existing attendance routes
+router.get('/live-locations', adminAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Restrict access to 7 PM - 11 PM
+    if (currentHour < 19 || currentHour >= 23) {
+      return res.status(403).json({ 
+        success: false,
+        msg: "Live tracking only available between 7 PM to 11 PM" 
+      });
+    }
+
+    const students = await User.aggregate([
+      { $match: { role: "student" } },
+      {
+        $lookup: {
+          from: "attendances",
+          let: { userId: "$_id" },
+          pipeline: [
+            { 
+              $match: { 
+                $expr: { 
+                  $and: [
+                    { $eq: ["$userId", "$$userId"] },
+                    { $gte: ["$timestamp", new Date().setHours(19,0,0,0)] }
+                  ]
+                }
+              }
+            },
+            { $sort: { timestamp: -1 } },
+            { $limit: 1 }
+          ],
+          as: "lastLocation"
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          email: 1,
+          latitude: { $arrayElemAt: ["$lastLocation.location.latitude", 0] },
+          longitude: { $arrayElemAt: ["$lastLocation.location.longitude", 0] },
+          timestamp: { $arrayElemAt: ["$lastLocation.timestamp", 0] },
+          distance: {
+            $round: [
+              haversine(
+                { $arrayElemAt: ["$lastLocation.location.latitude", 0] },
+                { $arrayElemAt: ["$lastLocation.location.longitude", 0] },
+                HOSTEL_LAT,
+                HOSTEL_LNG
+              ),
+              2
+            ]
+          },
+          status: {
+            $cond: {
+              if: { $gt: ["$distance", RADIUS_KM] },
+              then: "Out of Range",
+              else: "Within Range"
+            }
+          }
+        }
+      }
+    ]);
+
+    res.json({ success: true, data: students });
+  } catch (err) {
+    console.error("Live locations error:", err);
+    res.status(500).json({ success: false, msg: "Server error" });
+  }
+});
+
 module.exports = router;
